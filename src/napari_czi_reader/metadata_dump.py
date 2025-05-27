@@ -15,16 +15,20 @@ def get_in(dct: dict, keys: list, default=None):
         cur = cur[key]
     return cur
 
+
+# CONFIG
+NO_SCALING = True
 debug = False
 
 
-def metadata_dump(czi_read_file, channels) -> list[dict]:
+def metadata_dump(raw_xml, channels: int) -> list[dict]:
     """
-    Dumps the metadata of a .czi file to a json file.
+        Attempts to extract relevant metadata from the root element the metadata, type: xml.etree.ElementTree.Element
     """
 
-    raw_xml = ET.tostring(czi_read_file.metadata, encoding="utf-8")
-    ome_dict = xmltodict.parse(raw_xml)
+    # TODO: Load the data smarter, using the given tree structure.
+    xml_str = ET.tostring(raw_xml, encoding="utf-8", method="xml").decode("utf-8")
+    ome_dict = xmltodict.parse(xml_str)
 
     if debug:
         print("[*] Metadata dump:")
@@ -50,7 +54,9 @@ def metadata_dump(czi_read_file, channels) -> list[dict]:
     # spacing
     try:
         yx_spacing = [float(aq_mode.get("ScalingX", 0)) * 1e6, float(aq_mode.get("ScalingY", 0)) * 1e6]
-    except Exception:
+        if yx_spacing == [0.0, 0.0]:
+            yx_spacing = [1.0, 1.0]
+    except KeyError:
         yx_spacing = [1.0, 1.0]
     metadata = {"size": pixcount, "scale": yx_spacing, "units": "micrometre"}
     # wavelengths
@@ -88,9 +94,10 @@ def metadata_dump(czi_read_file, channels) -> list[dict]:
             cmap = "Grey"
         channel_metadata_list.append({
             "metadata": {**metadata, "wavelength": wv},
-            "scale": yx_spacing,
+            "scale": [1.0,1.0] if NO_SCALING else yx_spacing,
             "units": metadata["units"],
-            "colormap": cmap
+            "colormap": cmap,
+            "blending": "additive",
         })
     return channel_metadata_list
 
@@ -107,6 +114,6 @@ wavelength_to_color = RangeDict(
         (625, 740, "Red")])
 if __name__ == "__main__":
     czifile = CziReader(r"C:\Users\marku\OneDrive - Københavns Erhvervsakademi\Desktop\Nye billeder til test\C01 validation 1-Tile-4-Stain-Intellesis Trainable Segmentation-Output-01.czi")
-    metadata = metadata_dump(czifile, 2)
+    image_metadata = metadata_dump(czifile, 2)
 
-    print(json.dumps(metadata, indent=2))
+    print(json.dumps(image_metadata, indent=2))

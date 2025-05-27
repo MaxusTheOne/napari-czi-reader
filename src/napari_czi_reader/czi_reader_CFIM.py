@@ -57,35 +57,41 @@ def read_czi(path):
                         Required format for napari readers.
     """
     reader = CziReader(path)
+    czi = CziFile(path)
     file_name = os.path.basename(path)
-    channels = reader.dims.C
+    dimensions = czi.get_dims_shape()[0]
+    channels = dimensions.get("C", (0,0)) ## Gets max channels
+
+    xml_meta = czi.meta
 
     try:
-        # metadata_list = extract_key_metadata(reader, channels)
-        metadata_list = metadata_dump(reader, channels)
+        # metadata_list = extract_key_metadata(xml_meta, channels)
+        metadata_list = metadata_dump(xml_meta, channels[1])
     except ValueError as e:
-        metadata_list = [{} for _ in range(channels)]
+        metadata_list = [{} for _ in range(*channels)]
 
     file_name_trunked = truncate_filename(file_name, 20)
 
-    czi = CziFile(path)
+
     layer_data_list = []
-    for channel in range(channels):
+    for channel in range(*channels):
         metadata = metadata_list[channel]
         if DEBUG:
-            print(f"Debug | Channel: {channel}, Dims: {reader.dims}")
+            print(f"Debug | Channel: {channel}, Dims: {czi.dims}")
 
+        ## Expected dim order: 'STCZMYX'
         if czi.is_mosaic():
-            data = czi.read_mosaic(C=channel)  # shape: (T, Z, Y, X)
+            data = czi.read_mosaic(C=channel)
         else:
-            data = reader.get_image_data("ZYX", C=channel)
-        data = np.squeeze(data)
+            data = czi.read_image(C=channel)
+            # data = reader.get_image_data("ZYX", C=channel)
+        data = np.squeeze(data[0])
+
 
         if DEBUG:
-            print(f"[*] Metadata dump for channel: {channel}, size: {data.shape}")
-            print(json.dumps(metadata_list, indent=2))
+            print(f"Debug | Channel: {channel}, data shape: {data.shape}")
 
-        if channels > 0:
+        if channels[1] > 1:
             try:
                 metadata["name"] = f'{int(float(metadata["metadata"]["EmissionWavelength"]))}λ - {file_name_trunked}'
             except KeyError:
@@ -94,7 +100,7 @@ def read_czi(path):
         if not isinstance(metadata, dict):  # Holy shit, I'm making errors
             raise ValueError(f"Metadata for channel {channel} is not a dictionary. Got {type(metadata)}")
 
-        if reader.dims.Z == 2:
+        if dimensions.get("Z", (3,3))[1] == 2:
             layer_data_list.append((data, metadata, "label"))
         else:
             layer_data_list.append((data, metadata, "image"))
