@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 from aicsimageio.readers import CziReader
 import xmltodict
 
-from napari_pitcount_cfim.library_workarounds.RangeDict import RangeDict
+from napari_czi_reader.library_workarounds.RangeDict import RangeDict
 
 # helper for safe nested dict access
 def get_in(dct: dict, keys: list, default=None):

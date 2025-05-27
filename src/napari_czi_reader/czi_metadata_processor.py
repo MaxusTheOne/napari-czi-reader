@@ -4,7 +4,7 @@ import numpy as np
 import pint
 from scipy.interpolate import interp1d
 
-from napari_pitcount_cfim.library_workarounds.RangeDict import RangeDict
+from src.napari_czi_reader.library_workarounds.RangeDict import RangeDict
 
 
 def recursive_find(element, tag, num):
